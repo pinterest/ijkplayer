@@ -268,25 +268,8 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
                          withApplicationStateProvider:applicationStateProvider];
         _glView.isThirdGLView = NO;
         _view = _glView;
-        _hudViewController = [[IJKSDLHudViewController alloc] init];
-        [_hudViewController setRect:_glView.frame];
-        _shouldShowHudView = NO;
-        _hudViewController.tableView.hidden = YES;
-        [_view addSubview:_hudViewController.tableView];
-
-        [self setHudValue:nil forKey:@"scheme"];
-        [self setHudValue:nil forKey:@"host"];
-        [self setHudValue:nil forKey:@"path"];
-        [self setHudValue:nil forKey:@"ip"];
-        [self setHudValue:nil forKey:@"tcp-info"];
-        [self setHudValue:nil forKey:@"http"];
-        [self setHudValue:nil forKey:@"tcp-spd"];
-        [self setHudValue:nil forKey:@"t-prepared"];
-        [self setHudValue:nil forKey:@"t-render"];
-        [self setHudValue:nil forKey:@"t-preroll"];
-        [self setHudValue:nil forKey:@"t-http-open"];
-        [self setHudValue:nil forKey:@"t-http-seek"];
         
+        _shouldShowHudView = NO;
         self.shouldShowHudView = options.showHudView;
 
         ijkmp_ios_set_glview(_mediaPlayer, _glView);
@@ -958,7 +941,10 @@ inline static NSString *formatedSpeed(int64_t bytes, int64_t elapsed_milli) {
         return;
 
     if ([[NSThread currentThread] isMainThread]) {
+        [self _createHUDViewControllerIfNotExist];
         _hudViewController.tableView.hidden = NO;
+        [self setHudUrl:_urlString];
+        
         _hudTimer = [NSTimer scheduledTimerWithTimeInterval:.5f
                                                      target:self
                                                    selector:@selector(refreshHudView)
@@ -1859,6 +1845,10 @@ static int ijkff_inject_callback(void *opaque, int message, void *data, size_t d
 #pragma mark IJKFFHudController
 - (void)setHudValue:(NSString *)value forKey:(NSString *)key
 {
+    if (!self.shouldShowHudView) {
+        return;
+    }
+    
     if ([[NSThread currentThread] isMainThread]) {
         [_hudViewController setHudValue:value forKey:key];
     } else {
@@ -1866,6 +1856,20 @@ static int ijkff_inject_callback(void *opaque, int message, void *data, size_t d
             [self setHudValue:value forKey:key];
         });
     }
+}
+
+- (IJKSDLHudViewController *)_createHUDViewControllerIfNotExist
+{
+    if (_hudViewController) return _hudViewController;
+    
+    NSAssert(_glView, @"currently we assume glView is created during initialization, and HUD uses its framework size");
+    
+    _hudViewController = [[IJKSDLHudViewController alloc] init];
+    [_hudViewController setRect:_glView.frame];
+    _hudViewController.tableView.hidden = YES;
+    [_view addSubview:_hudViewController.tableView];
+    
+    return _hudViewController;
 }
 
 @end
