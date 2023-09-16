@@ -101,8 +101,7 @@ IJKFF_Pipenode *ffpipenode_create_video_decoder_from_ios_videotoolbox(FFPlayer *
     IJKFF_Pipenode *node = ffpipenode_alloc(sizeof(IJKFF_Pipenode_Opaque));
     if (!node)
         return node;
-    memset(node, sizeof(IJKFF_Pipenode), 0);
-
+    
     VideoState            *is         = ffp->is;
     IJKFF_Pipenode_Opaque *opaque     = node->opaque;
     node->func_destroy  = func_destroy;
