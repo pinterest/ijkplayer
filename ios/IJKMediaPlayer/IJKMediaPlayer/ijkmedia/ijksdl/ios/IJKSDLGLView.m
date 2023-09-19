@@ -34,6 +34,8 @@ typedef NS_ENUM(NSInteger, IJKSDLGLViewApplicationState) {
     IJKSDLGLViewApplicationBackgroundState = 2
 };
 
+static void IJK_dispatch_block_on_main_thread(dispatch_block_t block);
+
 @interface IJKSDLGLView()
 @property(atomic,strong) NSRecursiveLock *glActiveLock;
 @property(atomic) BOOL glActivePaused;
@@ -65,6 +67,8 @@ typedef NS_ENUM(NSInteger, IJKSDLGLViewApplicationState) {
     NSMutableArray *_registeredNotifications;
 
     IJKSDLGLViewApplicationState _applicationState;
+    
+    CAEAGLLayer *_eaglLayer;
 }
 
 @synthesize isThirdGLView              = _isThirdGLView;
@@ -126,7 +130,7 @@ withMainScreenProvider:(id<IJKThreadSafeMainScreen>)mainScreenProvider
     glGenRenderbuffers(1, &_renderbuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
     glBindRenderbuffer(GL_RENDERBUFFER, _renderbuffer);
-    [_context renderbufferStorage:GL_RENDERBUFFER fromDrawable:(CAEAGLLayer*)self.layer];
+    [_context renderbufferStorage:GL_RENDERBUFFER fromDrawable:_eaglLayer];
     glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &_backingWidth);
     glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &_backingHeight);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, _renderbuffer);
@@ -146,9 +150,9 @@ withMainScreenProvider:(id<IJKThreadSafeMainScreen>)mainScreenProvider
     return YES;
 }
 
-- (CAEAGLLayer *)eaglLayer
+- (CALayer *)glLayer
 {
-    return (CAEAGLLayer*) self.layer;
+    return _eaglLayer;
 }
 
 - (BOOL)setupGL
@@ -156,7 +160,7 @@ withMainScreenProvider:(id<IJKThreadSafeMainScreen>)mainScreenProvider
     if (_didSetupGL)
         return YES;
 
-    CAEAGLLayer *eaglLayer = (CAEAGLLayer*) self.layer;
+    CAEAGLLayer *eaglLayer = _eaglLayer;
     eaglLayer.opaque = YES;
     eaglLayer.drawableProperties = [NSDictionary dictionaryWithObjectsAndKeys:
                                     [NSNumber numberWithBool:NO], kEAGLDrawablePropertyRetainedBacking,
@@ -196,6 +200,10 @@ withMainScreenProvider:(id<IJKThreadSafeMainScreen>)mainScreenProvider
     if (![self tryLockGLActive])
         return NO;
 
+    IJK_dispatch_block_on_main_thread(^{
+        _eaglLayer = (CAEAGLLayer*) self.layer;
+    });
+    
     BOOL didSetupGL = [self setupGL];
     [self unlockGLActive];
     return didSetupGL;
@@ -377,14 +385,14 @@ withMainScreenProvider:(id<IJKThreadSafeMainScreen>)mainScreenProvider
         return;
     }
 
-    [[self eaglLayer] setContentsScale:_scaleFactor];
+    [_eaglLayer setContentsScale:_scaleFactor];
 
     if (_isRenderBufferInvalidated) {
         NSLog(@"IJKSDLGLView: renderbufferStorage fromDrawable\n");
         _isRenderBufferInvalidated = NO;
 
         glBindRenderbuffer(GL_RENDERBUFFER, _renderbuffer);
-        [_context renderbufferStorage:GL_RENDERBUFFER fromDrawable:(CAEAGLLayer*)self.layer];
+        [_context renderbufferStorage:GL_RENDERBUFFER fromDrawable:_eaglLayer];
         glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &_backingWidth);
         glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &_backingHeight);
         IJK_GLES2_Renderer_setGravity(_renderer, _rendererGravity, _backingWidth, _backingHeight);
@@ -641,4 +649,20 @@ withMainScreenProvider:(id<IJKThreadSafeMainScreen>)mainScreenProvider
 {
     _shouldLockWhileBeingMovedToWindow = shouldLockWhileBeingMovedToWindow;
 }
+
 @end
+
+
+#pragma mark - private
+
+static void IJK_dispatch_block_on_main_thread(dispatch_block_t block)
+{
+    NSCParameterAssert(block != nil);
+    if (block) {
+        if ([NSThread isMainThread]) {
+            block();
+        } else {
+            dispatch_sync(dispatch_get_main_queue(), block);
+        }
+    }
+}
