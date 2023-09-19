@@ -72,6 +72,7 @@ struct IJKOverlay {
 @property(nonatomic, readonly) CGFloat  fps;
 @property(nonatomic)        CGFloat  scaleFactor;
 @property(nonatomic)        BOOL  isThirdGLView;
+@property(nonatomic) CALayer *glLayer;
 - (void) display_pixels: (IJKOverlay *) overlay;
 @end
 

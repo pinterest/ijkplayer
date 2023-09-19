@@ -150,6 +150,11 @@ withMainScreenProvider:(id<IJKThreadSafeMainScreen>)mainScreenProvider
     return YES;
 }
 
+- (CALayer *)glLayer
+{
+    return _eaglLayer;
+}
+
 - (BOOL)setupGL
 {
     if (_didSetupGL)
@@ -644,6 +649,7 @@ withMainScreenProvider:(id<IJKThreadSafeMainScreen>)mainScreenProvider
 {
     _shouldLockWhileBeingMovedToWindow = shouldLockWhileBeingMovedToWindow;
 }
+
 @end
 
 
