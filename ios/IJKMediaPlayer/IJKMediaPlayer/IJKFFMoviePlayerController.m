@@ -279,8 +279,8 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
 #else
         [IJKFFMoviePlayerController setLogLevel:k_IJK_LOG_SILENT];
 #endif
-        // init audio sink
-        [[IJKAudioKit sharedInstance] setupAudioSession];
+        // init audio sink; lma: disable here as it would  intrupt background audio even current video doesn't play or is muted. Moved to -play
+      //  [[IJKAudioKit sharedInstance] setupAudioSession];
 
         [options applyTo:_mediaPlayer];
         _pauseInBackground = NO;
@@ -416,7 +416,6 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
 {
     if (!_mediaPlayer)
         return;
-
     ijkmp_set_data_source(_mediaPlayer, [_urlString UTF8String]);
     ijkmp_set_option(_mediaPlayer, IJKMP_OPT_CATEGORY_FORMAT, "safe", "0"); // for concat demuxer
 
@@ -442,6 +441,10 @@ void IJKFFIOStatCompleteRegister(void (*cb)(const char *url,
 {
     if (!_mediaPlayer)
         return;
+    
+    if ([self playbackVolume] > 0) {
+        [[IJKAudioKit sharedInstance] setupAudioSession];
+    }
 
     [self startHudTimer];
     ijkmp_start(_mediaPlayer);
